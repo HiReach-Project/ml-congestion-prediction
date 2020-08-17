@@ -1,7 +1,7 @@
-from flask import Flask, request
+from flask import Flask, request, Response
 import pandas as pd
+import json
 from fbprophet import Prophet
-
 
 app = Flask(__name__)
 
@@ -23,10 +23,17 @@ def predict():
 
     forecast = model.predict(future_date)
 
-    forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail()
+    print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
 
-    return forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_json()
+    jsonResponse = json.dumps({
+        "predicted_date": forecast['ds'].values[0].astype(str),
+        "predicted_value": forecast['yhat'].values[0].astype(str),
+        "predicted_upper_bound": forecast['yhat_upper'].values[0].astype(str),
+        "predicted_lower_bound": forecast['yhat_lower'].values[0].astype(str)
+    })
+    print(jsonResponse)
 
+    return Response(jsonResponse, mimetype='application/json')
 
 
 if __name__ == '__main__':

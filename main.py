@@ -15,7 +15,7 @@ def predict():
 
     date_to_predict = request.args.get('prediction_date')
 
-    model = Prophet()
+    model = Prophet(uncertainty_samples=0)
     model.fit(df)
 
     future_date = pd.DataFrame({'ds': [date_to_predict]})
@@ -23,13 +23,11 @@ def predict():
 
     forecast = model.predict(future_date)
 
-    print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
+    print(forecast[['ds', 'yhat']].tail())
 
     jsonResponse = json.dumps({
         "predicted_date": forecast['ds'].values[0].astype(str),
-        "predicted_value": forecast['yhat'].values[0].astype(str),
-        "predicted_upper_bound": forecast['yhat_upper'].values[0].astype(str),
-        "predicted_lower_bound": forecast['yhat_lower'].values[0].astype(str)
+        "predicted_value": forecast['yhat'].values[0].astype(str)
     })
     print(jsonResponse)
 

@@ -25,13 +25,13 @@ def predict():
 
     print(forecast[['ds', 'yhat']].tail())
 
-    jsonResponse = json.dumps({
-        "predicted_date": forecast['ds'].values[0].astype(str),
-        "predicted_value": forecast['yhat'].values[0].astype(str)
+    json_response = json.dumps({
+        "predicted_value": forecast['yhat'].values[0].astype(str),
+        "predicted_date": request.args.get('prediction_date')
     })
-    print(jsonResponse)
+    print(json_response)
 
-    return Response(jsonResponse, mimetype='application/json')
+    return Response(json_response, mimetype='application/json')
 
 
 if __name__ == '__main__':

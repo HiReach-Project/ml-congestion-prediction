@@ -1,17 +1,38 @@
-from flask import Flask, request, Response
-import pandas as pd
+import hashlib
 import json
+from datetime import datetime
+
+import pandas as pd
 from fbprophet import Prophet
+from flask import Flask, request, Response, jsonify
+from werkzeug.exceptions import abort
+
+from database import engine, db_session
+from models import Base, Company
 
 app = Flask(__name__)
+app.config['JSON_SORT_KEYS'] = False
 
 
-@app.route('/predict', methods=['POST'])
+def init_db():
+    Base.metadata.create_all(bind=engine)
+    print("Initialized the db")
+
+
+@app.before_request
+def authorize_requests():
+    hashed_key = hashlib.sha3_256(str(request.args.get('key')).encode('utf-8')).hexdigest()
+    db_company = db_session.query(Company).filter_by(access_key=hashed_key).first()
+    if db_company is None:
+        abort(403)
+
+
+@app.route('/api/predict', methods=['POST'])
 def predict():
     ml_data = request.json
     df = pd.DataFrame.from_dict(ml_data)
-    df['dateRounded'] = pd.DatetimeIndex(df['dateRounded']).tz_convert(None)
-    df = df.rename(columns={'dateRounded': 'ds', 'devices': 'y'})
+    df['timestamp'] = pd.DatetimeIndex(df['timestamp']).tz_convert(None)
+    df = df.rename(columns={'timestamp': 'ds', 'devices': 'y'})
 
     date_to_predict = request.args.get('prediction_date')
 
@@ -23,16 +44,40 @@ def predict():
 
     forecast = model.predict(future_date)
 
-    print(forecast[['ds', 'yhat']].tail())
-
     json_response = json.dumps({
         "predicted_value": forecast['yhat'].values[0].astype(str),
         "predicted_date": request.args.get('prediction_date')
     })
-    print(json_response)
 
     return Response(json_response, mimetype='application/json')
 
 
+@app.errorhandler(403)
+def forbidden_error(error):
+    return jsonify(
+        {
+            "timestamp": datetime.utcnow().isoformat() + 'Z',
+            "status": error.code,
+            "error": "Forbidden",
+            "message": "",
+            "path": request.path
+        }
+    ), error.code
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    return jsonify(
+        {
+            "timestamp": datetime.utcnow().isoformat() + 'Z',
+            "status": error.code,
+            "error": "Internal Server Error",
+            "message": "Oops! Something went wrong on our side.",
+            "path": request.path
+        }
+    ), error.code
+
+
 if __name__ == '__main__':
+    init_db()
     app.run(host='0.0.0.0')

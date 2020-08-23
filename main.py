@@ -32,7 +32,7 @@ def predict():
     ml_data = request.json
     df = pd.DataFrame.from_dict(ml_data)
     df['timestamp'] = pd.DatetimeIndex(df['timestamp']).tz_convert(None)
-    df = df.rename(columns={'timestamp': 'ds', 'devices': 'y'})
+    df = df.rename(columns={'timestamp': 'ds', 'value': 'y'})
 
     date_to_predict = request.args.get('prediction_date')
 
@@ -60,6 +60,19 @@ def forbidden_error(error):
             "status": error.code,
             "error": "Forbidden",
             "message": "",
+            "path": request.path
+        }
+    ), error.code
+
+
+@app.errorhandler(404)
+def page_not_found_error(error):
+    return jsonify(
+        {
+            "timestamp": datetime.utcnow().isoformat() + 'Z',
+            "status": error.code,
+            "error": "Not Found",
+            "message": "The requested URL was not found on the server.",
             "path": request.path
         }
     ), error.code

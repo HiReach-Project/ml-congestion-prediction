@@ -1,6 +1,9 @@
 import hashlib
 import json
+import pickle
+import time
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 from fbprophet import Prophet
@@ -12,6 +15,8 @@ from models import Base, Company
 
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
+
+SAVED_MODELS_PATH = 'saved_models'
 
 
 def init_db():
@@ -27,29 +32,57 @@ def authorize_requests():
         abort(403)
 
 
+def create_path(args):
+    print(args)
+    lat = args.get('lat')
+    lon = args.get('lon')
+    radius = args.get('radius')
+    return SAVED_MODELS_PATH + '/' + lat + '_' + lon + '_' + radius + '.pkl'
+
+
 @app.route('/api/predict', methods=['POST'])
 def predict():
-    ml_data = request.json
-    df = pd.DataFrame.from_dict(ml_data)
-    df['timestamp'] = pd.DatetimeIndex(df['timestamp']).tz_convert(None)
-    df = df.rename(columns={'timestamp': 'ds', 'value': 'y'})
-
+    start = time.time()
     date_to_predict = request.args.get('prediction_date')
 
-    model = Prophet(uncertainty_samples=0)
-    model.fit(df)
+    model_path = create_path(request.args)
+    if Path(model_path).exists():
+        print('exista')
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+    elif not request.data:
+        print('isNone')
+        return 'Not cached'
+    else:
+        ml_data = request.json
+        df = pd.DataFrame.from_dict(ml_data)
+        df['timestamp'] = pd.DatetimeIndex(df['timestamp']).tz_convert(None)
+        df = df.rename(columns={'timestamp': 'ds', 'value': 'y'})
 
+        model = Prophet(uncertainty_samples=0)
+        model.fit(df)
+        save_model(model, model_path)
+
+    print(time.time() - start)
     future_date = pd.DataFrame({'ds': [date_to_predict]})
     future_date['ds'] = pd.DatetimeIndex(future_date['ds']).tz_convert(None)
 
     forecast = model.predict(future_date)
-
+    print(time.time() - start)
     json_response = json.dumps({
         "predicted_value": forecast['yhat'].values[0].astype(str),
         "predicted_date": request.args.get('prediction_date')
     })
 
     return Response(json_response, mimetype='application/json')
+
+
+def save_model(model, model_path):
+    Path(SAVED_MODELS_PATH).mkdir(exist_ok=True)
+    with open(model_path, "wb") as f:
+        pickle.dump(model, f)
+
+    print("*** Data Saved ***")
 
 
 @app.errorhandler(403)
@@ -93,4 +126,4 @@ def internal_server_error(error):
 
 if __name__ == '__main__':
     init_db()
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', debug='on')

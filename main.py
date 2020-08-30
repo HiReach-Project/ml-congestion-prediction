@@ -32,22 +32,26 @@ def authorize_requests():
         abort(403)
 
 
+def validate_url_params(args):
+    if not args.get('lat') or not args.get('lon') or not args.get('radius') or not args.get('prediction_date'):
+        abort(400)
+
+
 def create_path(args):
-    print(args)
     lat = args.get('lat')
     lon = args.get('lon')
     radius = args.get('radius')
     return SAVED_MODELS_PATH + '/' + lat + '_' + lon + '_' + radius + '.pkl'
 
 
-@app.route('/api/predict', methods=['POST'])
+@app.route('/api/prediction', methods=['POST'])
 def predict():
     start = time.time()
+    validate_url_params(request.args)
     date_to_predict = request.args.get('prediction_date')
 
     model_path = create_path(request.args)
     if Path(model_path).exists():
-        print('exista')
         with open(model_path, 'rb') as f:
             model = pickle.load(f)
     elif not request.data:
@@ -83,6 +87,19 @@ def save_model(model, model_path):
         pickle.dump(model, f)
 
     print("*** Data Saved ***")
+
+
+@app.errorhandler(400)
+def forbidden_error(error):
+    return jsonify(
+        {
+            "timestamp": datetime.utcnow().isoformat() + 'Z',
+            "status": error.code,
+            "error": "Bad Request",
+            "message": "The client sent a request that this server could not understand.",
+            "path": request.path
+        }
+    ), error.code
 
 
 @app.errorhandler(403)
@@ -126,4 +143,4 @@ def internal_server_error(error):
 
 if __name__ == '__main__':
     init_db()
-    app.run(host='0.0.0.0', debug='on')
+    app.run(host='0.0.0.0')

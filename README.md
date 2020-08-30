@@ -25,9 +25,9 @@ docker run --network=host prediction_api
 All API requests require the use of an API key.
 To authenticate an API request, you should append your API key as a URL parameter.
 ```http
-POST /api/predict/?key=1234567890
+POST /api/prediction/?key=1234567890
 ```
-**Note**: for security reasons there is NO default api key added in the database. For testing the API, a hashed key must be manually added,
+**Note**: for security reasons there is NO default api key added into the database. For testing the API, a hashed key must be manually added,
  after running the container, as a SHA3_256 encoded string into the `company` table.  
  The hash can be obtained easily from [here](https://md5calc.com/hash/sha3-256/1234567890).  
  Example adding the SHA3_256 encoded hash of `1234567890` key in the database:
@@ -37,15 +37,20 @@ insert into company values(1, 'your_company_name', '01da8843e976913aa5c15a62d45f
 ## Endpoints
 ### Make a prediction
 To make a prediction a POST request is needed containing the time-series data as JSON in the request body and the prediction
-date as a url parameter.
+date as a url parameter.  
+Latitude, longitude and radius are required and used just for caching the prediction model and uniquely identifying the saved cache to be retrieved later.
 ```http
-POST /api/predict/?key=1234567890&prediction_date=2020-08-02T20:07:31Z
+POST /api/prediction/?key=1234567890&prediction_date=2020-08-02T20:07:31Z&lat=44.4133671&lon=26.1630280&radius=10.0
 ```
 *  **URL Params**
 
    **Required:**   
    `key=[string]` - Authorization key.  
-   `prediction_date=[timestamp]` - A future timestamp for which you want the prediction to be made. The timestamp must use the ISO 8601 standard.
+   `prediction_date=[timestamp]` - A future timestamp for which you want the prediction to be made. The timestamp must use the ISO 8601 standard.  
+   `lat=[numeric]` - Latitude.  
+   `lon=[numeric]` - Longitude.  
+   `radius=[numeric]` - Radius.   
+
 
 *  **Request body**
     ```json
@@ -63,7 +68,7 @@ POST /api/predict/?key=1234567890&prediction_date=2020-08-02T20:07:31Z
 
 *  **Sample call:**
     ```shell script
-    curl --request POST 'http://localhost:5000/api/predict?key=1234567890&prediction_date=2020-08-19T17:07:33.478200Z' \
+    curl --request POST 'http://localhost:5000/api/prediction?key=1234567890&prediction_date=2020-08-19T17:07:33.478200Z&lat=44.4133671&lon=26.1630280&radius=10.0' \
     --header 'Content-Type: application/json' \
     --data-raw '[
         {
@@ -91,6 +96,17 @@ POST /api/predict/?key=1234567890&prediction_date=2020-08-02T20:07:31Z
 
 
 ## Error Responses  
+**Code:** 400 BAD REQUEST  
+**Content:**   
+```json
+{
+    "timestamp": "2020-08-22T13:21:05.045562Z",
+    "status": 403,
+    "error": "Bad Request",
+    "message": "The client sent a request that this server could not understand.",
+    "path": "/api/prediction"
+}
+```
 **Code:** 403 FORBIDDEN  
 **Content:**   
 ```json
@@ -99,7 +115,7 @@ POST /api/predict/?key=1234567890&prediction_date=2020-08-02T20:07:31Z
     "status": 403,
     "error": "Forbidden",
     "message": "",
-    "path": "/api/predict"
+    "path": "/api/prediction"
 }
 ```
 **Code:** 404 NOT FOUND  
@@ -121,6 +137,6 @@ POST /api/predict/?key=1234567890&prediction_date=2020-08-02T20:07:31Z
     "status": 500,
     "error": "Internal Server Error",
     "message": "Oops! Something went wrong on our side.",
-    "path": "/api/predict"
+    "path": "/api/prediction"
 }
 ```

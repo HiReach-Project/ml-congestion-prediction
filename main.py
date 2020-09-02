@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from fbprophet import Prophet
 from flask import Flask, request, Response, jsonify
@@ -64,6 +65,9 @@ def predict():
         df = df.rename(columns={'timestamp': 'ds', 'value': 'y'})
 
         model = Prophet(uncertainty_samples=0)
+        # prevent negative values
+        df['y'] = df['y'] + 1
+        df['y'] = np.log(df['y'])
         model.fit(df)
         save_model(model, model_path)
 
@@ -72,6 +76,9 @@ def predict():
     future_date['ds'] = pd.DatetimeIndex(future_date['ds']).tz_convert(None)
 
     forecast = model.predict(future_date)
+    # convert log back
+    forecast[forecast.columns[1:]] = np.exp(forecast[forecast.columns[1:]]) - 1
+
     print(time.time() - start)
     json_response = json.dumps({
         "predicted_value": forecast['yhat'].values[0].astype(str),

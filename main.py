@@ -58,6 +58,15 @@ def validate_url_params(args):
     if not args.get('lat') or not args.get('lon') or not args.get('radius') or not args.get('prediction_date'):
         abort(400)
 
+    if float(args.get('lat')) < -90 or float(args.get('lat')) > 90:
+        abort(400)
+
+    if float(args.get('lon')) < -180 or float(args.get('lon')) > 180:
+        abort(400)
+
+    if float(args.get('radius')) > 6378000:
+        abort(400)
+
 
 def create_path(args):
     lat = args.get('lat')

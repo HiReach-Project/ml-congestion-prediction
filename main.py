@@ -68,7 +68,6 @@ def create_path(args):
 
 @app.route('/api/prediction', methods=['POST'])
 def predict():
-    start = time.time()
     validate_url_params(request.args)
     date_to_predict = request.args.get('prediction_date')
 
@@ -92,7 +91,6 @@ def predict():
         model.fit(df)
         save_model(model, model_path)
 
-    print(time.time() - start)
     future_date = pd.DataFrame({'ds': [date_to_predict]})
     future_date['ds'] = pd.DatetimeIndex(future_date['ds']).tz_convert(None)
 
@@ -100,7 +98,6 @@ def predict():
     # convert log back
     forecast[forecast.columns[1:]] = np.exp(forecast[forecast.columns[1:]]) - 1
 
-    print(time.time() - start)
     json_response = json.dumps({
         "predicted_value": forecast['yhat'].values[0].astype(str),
         "predicted_date": request.args.get('prediction_date')
